@@ -101,7 +101,11 @@ i{font-style:normal;font:700 10px 'Chakra Petch';color:#04050c;background:var(--
 @media (prefers-reduced-motion:reduce){.logo .l1,.logo .l2{animation:none}}
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(20px);opacity:0;z-index:20;background:rgba(8,8,22,.95);border:1px solid var(--cy);color:var(--tx);padding:10px 18px;border-radius:999px;font-size:14px;letter-spacing:.06em;transition:.25s;pointer-events:none}
 #toast.on{opacity:1;transform:translateX(-50%)}
-.tp{left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));width:52px;height:44px;border-radius:12px}
+#pbtn{position:fixed;left:50%;transform:translateX(-50%);z-index:8;display:none;align-items:center;gap:8px;font:700 13px 'Chakra Petch',sans-serif;letter-spacing:.16em;color:var(--tx);background:rgba(4,5,12,.6);border:1.5px solid rgba(77,240,255,.5);border-radius:10px;padding:8px 16px;cursor:pointer;touch-action:manipulation}
+#pbtn:hover{border-color:var(--cy);box-shadow:0 0 16px rgba(77,240,255,.45)}
+#pbtn b{font-size:15px;letter-spacing:2px}
+#pbtn small{font:500 11px 'IBM Plex Mono',monospace;color:var(--gr);letter-spacing:0}
+@media (hover:none){#pbtn small{display:none}}
 #touch{position:fixed;inset:0;display:none;z-index:5;pointer-events:none}
 .tb{position:absolute;pointer-events:auto;border-radius:22px;border:1.5px solid rgba(77,240,255,.45);background:rgba(4,5,12,.28);display:flex;align-items:center;justify-content:center;color:rgba(232,246,255,.85);font:600 13px 'Chakra Petch',sans-serif;letter-spacing:.08em;touch-action:none;transition:background .08s}
 .tb.on{background:rgba(77,240,255,.28);border-color:#4df0ff}
@@ -184,9 +188,9 @@ i{font-style:normal;font:700 10px 'Chakra Petch';color:#04050c;background:var(--
   <div class="g-cards" id="g-cards"></div>
 </section>
 </div>
+<button id="pbtn" aria-label="Pausa"><b>II</b> PAUSA <small>(P)</small></button>
 <div id="toast"></div>
 <div id="touch">
-  <div class="tb tp" data-k="p"><span>II</span></div>
   <div class="tb tl" data-k="l"><span>&#9664;</span></div><div class="tb tr" data-k="r"><span>&#9654;</span></div>
   <div class="tb ta" data-k="a"><span>ACELERAR</span></div><div class="tb tbk" data-k="b"><span>FRENO</span></div><div class="tb tt" data-k="t"><span>TURBO</span></div>
 </div>
@@ -810,7 +814,7 @@ function setupTouch(){
     el.querySelectorAll('.tb').forEach(e=>e.classList.toggle('on',Object.values(pads).some(p=>p.el===e)))};
   const hit=(x,y)=>{const e=document.elementFromPoint(x,y);return e&&e.closest?e.closest('.tb'):null};
   const set=(id,x,y)=>{const e=hit(x,y);if(!e){delete pads[id];return}const k=e.dataset.k;pads[id]={k:k==='l'||k==='r'?'steer':k,v:k==='l'?-1:k==='r'?1:0,el:e}};
-  el.addEventListener('pointerdown',e=>{e.preventDefault();if(e.target.closest&&e.target.closest('.tp')){pauseGame();return}set(e.pointerId,e.clientX,e.clientY);upd();sfx('unlock')});
+  el.addEventListener('pointerdown',e=>{e.preventDefault();set(e.pointerId,e.clientX,e.clientY);upd();sfx('unlock')});
   el.addEventListener('pointermove',e=>{if(pads[e.pointerId]){set(e.pointerId,e.clientX,e.clientY);upd()}});
   const end=e=>{delete pads[e.pointerId];upd()};
   el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
@@ -1306,6 +1310,7 @@ function drawHUD(){
   for(let i=0;i<N;i++){const on=i/N<fr;const c=i<10?COL.li:i<15?COL.am:COL.pk;ctx.fillStyle=on?c:'rgba(159,178,201,.14)';ctx.fillRect(m+12*u+i*sw,m+70*u,sw-2*u,10*u)}
   // tramo
   const si=G.stageIdx,st=T.stages[si];const tw=Math.min(W-2*m-2*(pw+12*u),380*u);
+  placePause(tw>240*u?m+54*u+8:m+20*u+8);
   if(tw>240*u){
     const tx=W/2-tw/2;panel(tx,m,tw,54*u,COL.vi);
     ctx.font=`700 ${Math.round(14*u)}px ${FONT_T}`;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillStyle=COL.tx;
@@ -1571,10 +1576,11 @@ function drawGarage(dt){
 }
 function render(dt){
   if(innerWidth<2||innerHeight<2)return;
-  if(UI.cur==='garage'){drawGarage(dt||0);return}
+  if(UI.cur==='garage'){showPause(0);drawGarage(dt||0);return}
   ctx.setTransform(DPR,0,0,DPR,0,0);
   renderWorld();drawWeather();drawFx();
   if(G.mode==='race')drawHUD();
+  showPause(G.mode==='race'&&!UI.cur&&(G.phase==='go'||G.phase==='count'));
 }
 
 function wireUI(){
@@ -1680,6 +1686,11 @@ function trackFps(dt){
   if(FPS.acc>=2){const fps=FPS.n/FPS.acc;FPS.acc=0;FPS.n=0;
     if(fps<48&&Q.level<2&&(G.mode==='race'||G.mode==='attract')&&!UI.cur){FPS.low++;if(FPS.low>=2){Q.level++;FPS.low=0;resize();BK.key='';RIVAL_KEY=''}}else FPS.low=0}
 }
+// botón de pausa visible (mouse y táctil)
+const PB={el:null,on:-1,top:-1};
+function showPause(v){if(!PB.el)return;v=v?1:0;if(v!==PB.on){PB.on=v;PB.el.style.display=v?'flex':'none'}}
+function placePause(y){if(!PB.el)return;y=Math.round(y);if(y!==PB.top){PB.top=y;PB.el.style.top=y+'px'}}
+function setupPauseBtn(){PB.el=document.getElementById('pbtn');PB.el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();pauseGame()})}
 // ===================== BUCLE =====================
 let last=performance.now();
 function frame(t){
@@ -1689,7 +1700,7 @@ function frame(t){
   requestAnimationFrame(frame);
 }
 function boot(){
-  resize();buildSprites();setBike(BIKES[0],'fab');buildCarSprites();buildTrack(hashStr('NEONRIDER-ARCADE'));setupTouch();wireUI();applyQuality();openTitle();
+  resize();buildSprites();setBike(BIKES[0],'fab');buildCarSprites();buildTrack(hashStr('NEONRIDER-ARCADE'));setupTouch();setupPauseBtn();wireUI();applyQuality();openTitle();
   requestAnimationFrame(frame);
 }
 (document.fonts&&document.fonts.ready?Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1500))]):Promise.resolve()).then(boot);
