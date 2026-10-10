@@ -487,7 +487,7 @@ function bgFor(si){
     const fade=l.createLinearGradient(lw-60,0,lw,0);
     return{c,w:lw,h:lh};
   };
-  const o={sky,sun,sr,far:mkLayer(0),near:mkLayer(1)};
+  const o={si,sky,sun,sr,far:mkLayer(0),near:mkLayer(1)};
   BG.cache[si]=o;return o;
 }
 function drawBgLayers(o,alpha){
@@ -498,6 +498,11 @@ function drawBgLayers(o,alpha){
     let x=-((BG.skyX*k)%L.w);if(x>0)x-=L.w;
     for(;x<W;x+=L.w)ctx.drawImage(L.c,x,HY-L.h+dy+1,L.w,L.h);
   }
+  // zona bajo el horizonte: en bajadas la carretera queda más abajo y este hueco debe pintarse cada cuadro
+  if(!o.low||o.lowH!==H){const st=STAGES[o.si],g=ctx.createLinearGradient(0,HY,0,H);g.addColorStop(0,st.fog);g.addColorStop(.18,mixHex(st.fog,st.ground[0],.7));g.addColorStop(1,st.ground[0]);o.low=g;o.lowH=H}
+  ctx.fillStyle=o.low;ctx.fillRect(0,HY,W,H-HY+1);
+  const st=STAGES[o.si];ctx.strokeStyle=rgba(st.grid,.28);ctx.lineWidth=1;ctx.beginPath();
+  for(let k=1;k<7;k++){const y=HY+Math.pow(k/7,2.2)*(H-HY)*.5;ctx.moveTo(0,y);ctx.lineTo(W,y)}ctx.stroke();
   ctx.globalAlpha=1;
 }
 function drawBackground(){
