@@ -128,9 +128,10 @@ i{font-style:normal;font:700 10px 'Chakra Petch';color:#04050c;background:var(--
       <button class="btn" data-nav data-act="garage">GARAGE</button>
       <button class="btn" data-nav data-act="daily">RETO DIARIO</button>
       <button class="btn" data-nav data-act="opts">OPCIONES</button>
+      <button class="btn sm fsb" data-nav data-act="fs">&#x26F6; PANTALLA COMPLETA</button>
     </nav>
     <p class="t-best" id="t-best"></p>
-    <p class="t-keys">FLECHAS / WASD · ESPACIO TURBO · P PAUSA · M SONIDO · MANDO COMPATIBLE</p>
+    <p class="t-keys">FLECHAS / WASD · ESPACIO TURBO · P PAUSA · M SONIDO · F PANTALLA COMPLETA · MANDO COMPATIBLE</p>
   </div>
 </section>
 <section class="scr dim" id="s-opts"><div class="box">
@@ -158,7 +159,8 @@ i{font-style:normal;font:700 10px 'Chakra Petch';color:#04050c;background:var(--
   <button class="btn" data-nav data-act="restart">REINICIAR</button>
   <button class="btn" data-nav data-act="toGarage">GARAGE</button>
   <button class="btn" data-nav data-act="quit">MENÚ PRINCIPAL</button>
-  <p class="muted">P o START para continuar · M sonido</p>
+  <button class="btn sm fsb" data-nav data-act="fs">&#x26F6; PANTALLA COMPLETA</button>
+  <p class="muted">P o START para continuar · M sonido · F pantalla completa</p>
 </div></section>
 <section class="scr dim" id="s-end"><div class="box wide">
   <h2 id="e-title">¡META!</h2><p class="muted" id="e-sub"></p>
@@ -1587,7 +1589,8 @@ function wireUI(){
   document.querySelectorAll('[data-act]').forEach(e=>e.addEventListener('click',()=>ACT[e.dataset.act]&&ACT[e.dataset.act](e)));
 }
 const ACT={
-  run(){sfx('select');UI.hide();startRace(GAR.daily);refreshTouch()},
+  run(){sfx('select');enterFs();UI.hide();startRace(GAR.daily);refreshTouch()},
+  fs(){sfx('select');toggleFs()},
   toTitle(){if(window.openTitle)openTitle();else UI.hide()},
 };
 // ===================== PANTALLAS: TÍTULO, OPCIONES, RETO, PAUSA, FIN =====================
@@ -1691,6 +1694,16 @@ const PB={el:null,on:-1,top:-1};
 function showPause(v){if(!PB.el)return;v=v?1:0;if(v!==PB.on){PB.on=v;PB.el.style.display=v?'flex':'none'}}
 function placePause(y){if(!PB.el)return;y=Math.round(y);if(y!==PB.top){PB.top=y;PB.el.style.top=y+'px'}}
 function setupPauseBtn(){PB.el=document.getElementById('pbtn');PB.el.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();pauseGame()})}
+// pantalla completa
+function fsOn(){return !!(document.fullscreenElement||document.webkitFullscreenElement)}
+function fsCan(){const d=document.documentElement;return !!(d.requestFullscreen||d.webkitRequestFullscreen)}
+function enterFs(){if(fsOn()||!fsCan())return;const d=document.documentElement;try{const r=(d.requestFullscreen||d.webkitRequestFullscreen).call(d,{navigationUI:'hide'});if(r&&r.catch)r.catch(()=>{})}catch(e){}}
+function exitFs(){if(!fsOn())return;try{const r=(document.exitFullscreen||document.webkitExitFullscreen).call(document);if(r&&r.catch)r.catch(()=>{})}catch(e){}}
+function toggleFs(){fsOn()?exitFs():enterFs()}
+function refreshFsBtns(){document.querySelectorAll('.fsb').forEach(b=>{b.style.display=fsCan()?'':'none';b.innerHTML=fsOn()?'&#x26F6; SALIR DE PANTALLA COMPLETA':'&#x26F6; PANTALLA COMPLETA'})}
+document.addEventListener('fullscreenchange',()=>{refreshFsBtns();setTimeout(resize,50)});
+document.addEventListener('webkitfullscreenchange',()=>{refreshFsBtns();setTimeout(resize,50)});
+addEventListener('keydown',e=>{if(e.code==='KeyF'&&!e.repeat){toggleFs();e.preventDefault()}});
 // ===================== BUCLE =====================
 let last=performance.now();
 function frame(t){
@@ -1700,7 +1713,7 @@ function frame(t){
   requestAnimationFrame(frame);
 }
 function boot(){
-  resize();buildSprites();setBike(BIKES[0],'fab');buildCarSprites();buildTrack(hashStr('NEONRIDER-ARCADE'));setupTouch();setupPauseBtn();wireUI();applyQuality();openTitle();
+  resize();buildSprites();setBike(BIKES[0],'fab');buildCarSprites();buildTrack(hashStr('NEONRIDER-ARCADE'));setupTouch();setupPauseBtn();wireUI();refreshFsBtns();applyQuality();openTitle();
   requestAnimationFrame(frame);
 }
 (document.fonts&&document.fonts.ready?Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1500))]):Promise.resolve()).then(boot);
